@@ -96,8 +96,8 @@ def run_global_scan():
                     html = resp.read().decode('utf-8', errors='ignore')
                     for model in ["DS 3", "DS 4", "DS 7", "DS 9"]:
                         # Recherche data-attributes ou titres
-                        # Correction SyntaxError: utilisation de triple quotes pour eviter les conflits de guillemets
-                        pattern = rf'data-model-text=["\']{{model}}["\']' # Corrected regex pattern
+                        # CORRECTION SYNTAXE: Utilisation de triple quotes f"""...""" pour éviter l'erreur
+                        pattern = rf"""data-model-text=['"]{model}['"]"""
                         count = len(re.findall(pattern, html, re.I))
                         if count == 0:
                             count = len(re.findall(rf'{model}.{{0,50}}(?:PureTech|BlueHDi|E-TENSE|kW|ch)', html, re.I))
