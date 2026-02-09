@@ -79,7 +79,7 @@ def run_global_scan():
             home = fetch_json(cfg['url'] + "/configurable") or fetch_json(cfg['url'])
             if home:
                 models = find_models_recursive(home)
-                unique = {f"{m['id']}-{m['bodyId']}": m for m in models}.values()
+                unique = {f"{m['id']}-{m['bodyId']}": m for m in models if m['name']}.values()
                 for m in unique:
                     stock_url = f"{cfg['url']}/stock/{m['id']}/{m['bodyId']}?channel=b2c&latitude={cfg['lat']}&longitude={cfg['lon']}"
                     s_data = fetch_json(stock_url)
@@ -96,7 +96,9 @@ def run_global_scan():
                     html = resp.read().decode('utf-8', errors='ignore')
                     for model in ["DS 3", "DS 4", "DS 7", "DS 9"]:
                         # Recherche data-attributes ou titres
-                        count = len(re.findall(rf"data-model-text=['"]{model}['"]", html, re.I))
+                        # Correction SyntaxError: utilisation de triple quotes pour eviter les conflits de guillemets
+                        pattern = rf'data-model-text=["\']{{model}}["\']' # Corrected regex pattern
+                        count = len(re.findall(pattern, html, re.I))
                         if count == 0:
                             count = len(re.findall(rf'{model}.{{0,50}}(?:PureTech|BlueHDi|E-TENSE|kW|ch)', html, re.I))
                         
