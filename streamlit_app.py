@@ -9,24 +9,23 @@ from io import BytesIO
 from datetime import datetime
 
 # =============================================================================
-# CONFIGURATION
+# CONFIGURATION DES 10 PAYS
 # =============================================================================
 
-st.set_page_config(page_title="DS Stock Europe", page_icon="🚗", layout="wide")
+st.set_page_config(page_title="DS Stock Europe 10", page_icon="🇪🇺", layout="wide")
 
-MODERN_SITES = {
-    'FRANCE': { 'url': "https://store.dsautomobiles.fr", 'lat': "46.2276", 'lon': "2.2137" },
-    'ESPAGNE': { 'url': "https://store.dsautomobiles.es", 'lat': "40.4168", 'lon': "-3.7038" },
-    'ITALIE': { 'url': "https://store.dsautomobiles.it", 'lat': "41.9028", 'lon': "12.4964" }
-}
-
-LEGACY_SITES = {
-    'ROYAUME-UNI': "https://www.stellantisandyou.co.uk/ds/new-cars-in-stock",
-    'POLOGNE': "https://sklep.dsautomobiles.pl/",
-    'PORTUGAL': "https://dsonlinestore.dsautomobiles.pt/listagem", 
-    'PAYS-BAS': "https://voorraad.dsautomobiles.nl/stock",
-    'BELGIQUE': "https://stock.dsautomobiles.be/fr/stock",
-    'ALLEMAGNE': "https://financing.dsautomobiles.store/bestand"
+# On définit les 10 pays cibles avec leurs points GPS centraux
+TARGET_COUNTRIES = {
+    'FRANCE':      {'url': "https://store.dsautomobiles.fr",    'lat': "46.2276", 'lon': "2.2137",  'type': 'API'},
+    'UK':          {'url': "https://store.dsautomobiles.co.uk", 'lat': "52.4862", 'lon': "-1.8904", 'type': 'API'},
+    'GERMANY':     {'url': "https://store.dsautomobiles.de",    'lat': "51.1657", 'lon': "10.4515", 'type': 'API'},
+    'ITALY':       {'url': "https://store.dsautomobiles.it",    'lat': "41.9028", 'lon': "12.4964", 'type': 'API'},
+    'SPAIN':       {'url': "https://store.dsautomobiles.es",    'lat': "40.4168", 'lon': "-3.7038", 'type': 'API'},
+    'BELGIUM':     {'url': "https://stock.dsautomobiles.be/fr", 'lat': "50.8503", 'lon': "4.3517",  'type': 'HTML'},
+    'NETHERLANDS': {'url': "https://voorraad.dsautomobiles.nl", 'lat': "52.3676", 'lon': "4.9041",  'type': 'HTML'},
+    'PORTUGAL':    {'url': "https://dsonlinestore.dsautomobiles.pt", 'lat': "38.7223", 'lon': "-9.1393", 'type': 'HTML'},
+    'POLAND':      {'url': "https://sklep.dsautomobiles.pl",    'lat': "52.2297", 'lon': "21.0122", 'type': 'HTML'},
+    'AUSTRIA':     {'url': "https://financing.dsautomobiles.at", 'lat': "48.2082", 'lon': "16.3738", 'type': 'HTML'}
 }
 
 ctx = ssl.create_default_context()
@@ -39,160 +38,117 @@ HEADERS = {
 }
 
 # =============================================================================
-# FONCTIONS BACKEND
+# FONCTIONS DE SCRAPING
 # =============================================================================
 
-@st.cache_data(ttl=600) # Cache les résultats 10 min pour éviter de spammer
-def fetch_content(url):
+def fetch_json(url):
     try:
         req = urllib.request.Request(url, headers=HEADERS)
         with urllib.request.urlopen(req, context=ctx, timeout=15) as response:
-            return response.read().decode('utf-8', errors='ignore')
-    except Exception:
-        return None
-
-def run_scraper():
-    results = []
-    
-    # Barre de progression
-    total_steps = len(MODERN_SITES) + len(LEGACY_SITES)
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    step = 0
-
-    # 1. MODERN SITES
-    for country, cfg in MODERN_SITES.items():
-        status_text.text(f"Analyse en cours : {country}...")
-        html = fetch_content(cfg['url'])
-        
-        if html:
+            html = response.read().decode('utf-8', errors='ignore')
             match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html)
-            if match:
-                data = json.loads(match.group(1))
-                models = []
-                def find_models(obj):
-                    if isinstance(obj, dict):
-                        if 'model' in obj and 'bodyStyle' in obj:
-                            m, b = obj['model'], obj['bodyStyle']
-                            if isinstance(m, dict) and isinstance(b, dict):
-                                models.append({'id': m.get('id'), 'bodyId': b.get('id'), 'name': m.get('title')})
-                        for v in obj.values(): find_models(v)
-                    elif isinstance(obj, list):
-                        for i in obj: find_models(i)
-                find_models(data)
-                
-                # Unique models
-                unique = {f"{m['id']}-{m['bodyId']}": m for m in models if m['name']}.values()
+            if match: return json.loads(match.group(1))
+    except: pass
+    return None
 
+def find_models_recursive(data):
+    models = []
+    def walk(obj):
+        if isinstance(obj, dict):
+            if 'model' in obj and 'bodyStyle' in obj:
+                m, b = obj['model'], obj['bodyStyle']
+                if isinstance(m, dict) and isinstance(b, dict):
+                    mid, bid, name = m.get('id'), b.get('id'), m.get('title')
+                    if mid and bid and name: models.append({'id': mid, 'bodyId': bid, 'name': name})
+            for v in obj.values(): walk(v)
+        elif isinstance(obj, list):
+            for i in obj: walk(i)
+    walk(data)
+    return models
+
+def run_global_scan():
+    all_data = []
+    progress = st.progress(0)
+    status = st.empty()
+    
+    for idx, (name, cfg) in enumerate(TARGET_COUNTRIES.items()):
+        status.text(f"🌍 Analyse en cours : {name}...")
+        
+        if cfg['type'] == 'API':
+            # Moteur API (Plus précis)
+            home = fetch_json(cfg['url'] + "/configurable") or fetch_json(cfg['url'])
+            if home:
+                models = find_models_recursive(home)
+                unique = {f"{m['id']}-{m['bodyId']}": m for m in models}.values()
                 for m in unique:
                     stock_url = f"{cfg['url']}/stock/{m['id']}/{m['bodyId']}?channel=b2c&latitude={cfg['lat']}&longitude={cfg['lon']}"
-                    stock_html = fetch_content(stock_url)
-                    if stock_html:
-                        smatch = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', stock_html)
-                        if smatch:
-                            sdata = json.loads(smatch.group(1))
-                            offers = sdata.get('props', {}).get('pageProps', {}).get('offers', {})
-                            count = offers.get('count', 0) if isinstance(offers, dict) else len(offers) if isinstance(offers, list) else 0
-                            
-                            details = ""
-                            if count > 0 and isinstance(offers, dict):
-                                energies = offers.get('filters', {}).get('fuelTypes', [])
-                                if energies:
-                                    details = ", ".join([f"{e['title']} ({e['count']})" for e in energies])
-                            
-                            results.append({
-                                'Pays': country, 'Modèle': m['name'], 'Stock': count, 'Type': 'Précis (API)', 'Détails': details
-                            })
+                    s_data = fetch_json(stock_url)
+                    if s_data:
+                        offers = s_data.get('props', {}).get('pageProps', {}).get('offers', {})
+                        count = offers.get('count', 0) if isinstance(offers, dict) else 0
+                        all_data.append({'Pays': name, 'Modèle': m['name'], 'Stock': count, 'Détails': 'API Live'})
         
-        step += 1
-        progress_bar.progress(step / total_steps)
-
-    # 2. LEGACY SITES
-    for country, url in LEGACY_SITES.items():
-        status_text.text(f"Analyse en cours : {country}...")
-        html = fetch_content(url)
-        
-        if html:
-            models = ["DS 3", "DS 4", "DS 7", "DS 9"]
-            
-            if country == 'ALLEMAGNE':
-                for model in models:
-                    # Correction: Utilisation de double quotes pour entourer la f-string
-                    count = len(re.findall(rf"data-model-text=['\"]{model}['\"]", html, re.IGNORECASE))
-                    if count > 0:
-                        results.append({'Pays': country, 'Modèle': model, 'Stock': count, 'Type': 'Précis (HTML)', 'Détails': ''})
+        else:
+            # Moteur HTML (Estimation pour les sites résistants)
+            req = urllib.request.Request(cfg['url'], headers=HEADERS)
+            try:
+                with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
+                    html = resp.read().decode('utf-8', errors='ignore')
+                    for model in ["DS 3", "DS 4", "DS 7", "DS 9"]:
+                        # Recherche data-attributes ou titres
+                        count = len(re.findall(rf"data-model-text=['"]{model}['"]", html, re.I))
+                        if count == 0:
+                            count = len(re.findall(rf'{model}.{{0,50}}(?:PureTech|BlueHDi|E-TENSE|kW|ch)', html, re.I))
                         
-            elif country == 'PORTUGAL':
-                for model in models:
-                    count = len(re.findall(rf'{model}.{{0,300}}(?:€|EUR|Preço)', html, re.IGNORECASE))
-                    if count == 0 and "4" in model:
-                         count = len(re.findall(rf'<h\d>[^<]*{model}[^<]*</h\d>', html, re.IGNORECASE))
-                    if count > 0:
-                        results.append({'Pays': country, 'Modèle': model, 'Stock': count, 'Type': 'Estimé', 'Détails': ''})
-            
-            else: # Generic
-                # Try SEO JSON-LD first
-                json_ld = re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.DOTALL)
-                found_seo = False
-                for j in json_ld:
-                    try:
-                        jd = json.loads(j)
-                        if isinstance(jd, dict) and 'hasOfferCatalog' in jd:
-                            count = len(jd['hasOfferCatalog'].get('itemListElement', []))
-                            if count > 0:
-                                results.append({'Pays': country, 'Modèle': 'Global', 'Stock': count, 'Type': 'Global (SEO)', 'Détails': ''})
-                                found_seo = True
-                    except: pass
-                
-                if not found_seo:
-                    for model in models:
-                        count = len(re.findall(rf'{model}.{{0,50}}(?:PureTech|BlueHDi|E-TENSE|Hybrid|Electric)', html, re.IGNORECASE))
                         if count > 0:
-                            results.append({'Pays': country, 'Modèle': model, 'Stock': count, 'Type': 'Estimé (Text)', 'Détails': ''})
+                            all_data.append({'Pays': name, 'Modèle': model, 'Stock': count, 'Détails': 'HTML Scan'})
+            except: pass
 
-        step += 1
-        progress_bar.progress(step / total_steps)
+        progress.progress((idx + 1) / len(TARGET_COUNTRIES))
     
-    status_text.text("Terminé !")
-    time.sleep(1)
-    status_text.empty()
-    progress_bar.empty()
-    
-    return pd.DataFrame(results)
+    status.empty()
+    return pd.DataFrame(all_data)
 
 # =============================================================================
-# INTERFACE UTILISATEUR
+# INTERFACE & EXPORT EXCEL
 # =============================================================================
 
-st.title("🇪🇺 DS Automobiles - European Stock Monitor")
-st.markdown("Ce tableau de bord scanne les stocks de véhicules neufs disponibles en ligne dans 9 pays européens.")
+st.title("🚗 DS Europe - Stock Monitor (10 Pays)")
 
-if st.button("🔄 Lancer le Scan (Live)"):
-    df = run_scraper()
+if st.button("🏁 Lancer le Scan Européen"):
+    df = run_global_scan()
     
     if not df.empty:
-        # Métriques Clés
-        total_stock = df['Stock'].sum()
-        top_country = df.groupby('Pays')['Stock'].sum().idxmax()
-        
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Stock Total Europe", total_stock)
-        col2.metric("Top Pays", top_country)
-        col3.metric("Nombre de Pays", df['Pays'].nunique())
-        
-        # Affichage Tableau
+        st.write("### Résultats du Scan")
         st.dataframe(df, use_container_width=True)
         
-        # Export Excel
+        # Génération Excel PRO
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Sheet1')
+            # 1. Onglet Résumé Global
+            summary = df.groupby('Pays')['Stock'].sum().reset_index()
+            summary.to_excel(writer, sheet_name='RESUME GLOBAL', index=False)
             
+            # 2. Un onglet par Pays
+            for country in df['Pays'].unique():
+                country_df = df[df['Pays'] == country]
+                # Nettoyage nom onglet (31 chars max)
+                sheet_name = str(country)[:31]
+                country_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                
+                # Mise en forme
+                workbook  = writer.book
+                worksheet = writer.sheets[sheet_name]
+                header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+                for col_num, value in enumerate(country_df.columns.values):
+                    worksheet.write(0, col_num, value, header_format)
+                    worksheet.set_column(col_num, col_num, 20)
+
         st.download_button(
-            label="📥 Télécharger le rapport Excel",
+            label="📥 Télécharger l'Excel (1 onglet par pays)",
             data=output.getvalue(),
-            file_name=f"DS_Stocks_Europe_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-            mime="application/vnd.ms-excel"
+            file_name=f"DS_Stock_Europe_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
-        st.error("Aucune donnée trouvée. Vérifiez la connexion.")
+        st.error("Échec du scan. Vérifiez la connexion aux sites.")
