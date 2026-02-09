@@ -117,7 +117,8 @@ def run_scraper():
             
             if country == 'ALLEMAGNE':
                 for model in models:
-                    count = len(re.findall(rf'data-model-text=["']{model}["']', html, re.IGNORECASE))
+                    # Correction: Utilisation de double quotes pour entourer la f-string
+                    count = len(re.findall(rf"data-model-text=['\"]{model}['\"]", html, re.IGNORECASE))
                     if count > 0:
                         results.append({'Pays': country, 'Modèle': model, 'Stock': count, 'Type': 'Précis (HTML)', 'Détails': ''})
                         
