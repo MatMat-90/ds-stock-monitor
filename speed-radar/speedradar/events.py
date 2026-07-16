@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
+from dataclasses import fields as dataclass_fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -29,6 +30,10 @@ class SpeedEvent:
     clip_path: Optional[str] = None
     snapshot_path: Optional[str] = None
     calibration: dict = field(default_factory=dict)
+    # Traçabilité métrologique : version exacte du logiciel et de la
+    # configuration ayant produit la mesure (voir integrity.py).
+    software_fingerprint: Optional[str] = None
+    config_fingerprint: Optional[str] = None
 
     @classmethod
     def create(
@@ -71,8 +76,11 @@ class EventLog:
     def read_all(self) -> list[SpeedEvent]:
         if not self.path.exists():
             return []
+        fields = {f.name for f in dataclass_fields(SpeedEvent)}
         events = []
         for line in self.path.read_text(encoding="utf-8").splitlines():
             if line.strip():
-                events.append(SpeedEvent(**json.loads(line)))
+                data = json.loads(line)
+                # Ignore les clés annexes (ex. bloc _scellement du journal signé).
+                events.append(SpeedEvent(**{k: v for k, v in data.items() if k in fields}))
         return events

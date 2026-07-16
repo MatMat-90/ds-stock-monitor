@@ -36,6 +36,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--max-frames", type=int, help="S'arrêter après N images (tests/démos)"
     )
+    parser.add_argument(
+        "--verifier-journal",
+        metavar="RELEVES.JSONL",
+        help="Vérifier l'intégrité (chaînage + signatures) d'un journal scellé, puis quitter",
+    )
+    parser.add_argument(
+        "--autotest",
+        action="store_true",
+        help="Exécuter l'autotest métrologique, afficher le rapport, puis quitter",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -43,6 +53,26 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
     )
+
+    if args.verifier_journal:
+        from .integrity import SealedEventLog
+
+        errors = SealedEventLog(args.verifier_journal).verify()
+        if errors:
+            for e in errors:
+                print(f"ALTÉRATION DÉTECTÉE — {e}")
+            return 1
+        print("Journal intact : chaînage et signatures valides.")
+        return 0
+
+    if args.autotest:
+        import json
+
+        from .integrity import run_self_test
+
+        report = run_self_test()
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0 if report["ok"] else 1
 
     config = load_config(args.config)
     if args.source is not None:

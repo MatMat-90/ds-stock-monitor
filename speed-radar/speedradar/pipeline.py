@@ -14,7 +14,13 @@ from .anpr import read_plate
 from .calibration import AutoCalibrator, PlanarCalibration
 from .config import RadarConfig
 from .detection import build_detector
-from .events import EventLog, SpeedEvent
+from .events import SpeedEvent
+from .integrity import (
+    SealedEventLog,
+    config_fingerprint,
+    run_self_test,
+    software_fingerprint,
+)
 from .recorder import EventRecorder
 from .ring_buffer import FrameRingBuffer
 from .speed import SpeedEstimate, estimate_speed
@@ -67,13 +73,23 @@ class SpeedRadar:
         self.calibrator: AutoCalibrator | None = None  # créé à la 1re image
         self.vehicle_db = VehicleDatabase(config.vehicle_db_dir)
         self.output_dir = Path(config.recording.output_dir)
-        self.event_log = EventLog(self.output_dir / "releves.jsonl")
+        # Journal scellé (chaîné + signé) : les relevés sont inviolables.
+        self.event_log = SealedEventLog(self.output_dir / "releves.jsonl")
+        self._software_fp = software_fingerprint()
+        self._config_fp = config_fingerprint(config)
         self._recorder: EventRecorder | None = None
         self._pending_event: SpeedEvent | None = None
         self._recorded_tracks: set[int] = set()
 
     # ------------------------------------------------------------------
     def run(self, display: bool = False, max_frames: int | None = None) -> None:
+        # Autotest métrologique : un instrument ne doit pas mesurer si ses
+        # fonctions de mesure ne sont pas vérifiées (WELMEC 7.2).
+        report = run_self_test()
+        log.info("Autotest: %s | logiciel %s", report["checks"], self._software_fp[:16])
+        if not report["ok"]:
+            raise RuntimeError(f"Autotest échoué, mesure refusée: {report['checks']}")
+
         cap, fps, is_live = open_source(self.cfg.source, self.cfg.fallback_fps)
         ring = FrameRingBuffer(self.cfg.recording.pre_seconds, fps)
         frame_idx = 0
@@ -183,6 +199,8 @@ class SpeedRadar:
             if self.planar
             else {"mode": "auto", **self.calibrator.summary()}
         )
+        event.software_fingerprint = self._software_fp
+        event.config_fingerprint = self._config_fp
         log.info(
             "Déclenchement piste %d: %.1f km/h (limite %.0f+%.0f)",
             track.track_id,

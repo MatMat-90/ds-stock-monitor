@@ -127,6 +127,21 @@ La suite couvre le suivi, la convergence de l'auto-calibration, l'estimation
 de vitesse, la mémoire circulaire, les relevés, et un test d'intégration qui
 fait traverser un véhicule synthétique dans tout le pipeline.
 
+## Intégrité métrologique des relevés
+
+Le projet implémente les exigences *logicielles* applicables aux instruments
+de mesure réglementés (guide WELMEC 7.2) — voir
+[docs/HOMOLOGATION.md](docs/HOMOLOGATION.md) pour la procédure d'homologation
+réelle et l'analyse des écarts :
+
+- **autotest bloquant** au démarrage (géométrie, vitesse, enregistrement,
+  horloge) : `python -m speedradar --autotest` ;
+- **journal scellé** : chaque relevé est chaîné au précédent et signé
+  (HMAC-SHA256) — toute modification, suppression ou insertion a posteriori
+  est détectable : `python -m speedradar --verifier-journal captures/releves.jsonl` ;
+- **empreintes** : chaque relevé embarque le SHA-256 du logiciel et de la
+  configuration qui ont produit la mesure.
+
 ## ⚠️ Limites et cadre légal
 
 - Ce projet est un outil **pédagogique et indicatif**. Ce n'est **pas un
