@@ -81,6 +81,35 @@ distance/temps mesurés), vous pouvez quantifier l'erreur du radar.
 | Vitesses fantaisistes | Fournir une calibration par homographie (`calibration.ground_points`) mesurée sur place — bien plus précise que l'auto-calibration statistique |
 | Trop / pas assez d'enregistrements | Ajuster `speed_limit_kmh` et `tolerance_kmh`, ou `--record-all` pour tout garder |
 
+## Retour d'un test réel (footage libre de droits)
+
+Le pipeline a été testé sur des vidéos de trafic librement réutilisables
+(Wikimedia Commons : autoroute E18 à Lysaker, Norvège — domaine public ;
+Ayalon Freeway, Tel Aviv — CC BY-SA). Enseignements concrets :
+
+- **Détection** : avec la soustraction de fond seule, une scène réelle
+  complexe (bâtiments, arbres, léger tremblement caméra) génère beaucoup de
+  fausses détections. Avec **YOLO**, seules les véhicules sont détectés — la
+  différence est spectaculaire. Installez YOLO pour tout usage sérieux.
+- **Suivi** : robuste, un identifiant stable par véhicule.
+- **Vitesse** : l'auto-calibration statistique donne le bon ordre de grandeur
+  mais reste imprécise sur une **vue oblique** (la perspective déforme
+  l'échelle m/px, et la longueur apparente d'un véhicule dépend de l'angle).
+  Sur une même autoroute, les estimations peuvent varier du simple au double.
+  **Pour des chiffres fiables, fournissez une calibration par homographie**
+  (`calibration.ground_points`) : 4 points mesurés sur la chaussée suffisent à
+  corriger la perspective.
+
+### Poids YOLO
+
+`ultralytics` télécharge `yolov8n.pt` automatiquement au premier lancement. Si
+votre réseau bloque l'asset GitHub, récupérez-le depuis le miroir Hugging Face
+et placez-le dans le dossier courant :
+
+```bash
+curl -L -o yolov8n.pt https://huggingface.co/Ultralytics/YOLOv8/resolve/main/yolov8n.pt
+```
+
 ## Vérifier après une session de test
 
 ```bash

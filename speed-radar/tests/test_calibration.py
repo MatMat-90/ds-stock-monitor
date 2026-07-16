@@ -44,6 +44,29 @@ def test_autocalibrator_requires_min_samples():
     assert cal.is_calibrated
 
 
+def test_autocalibrator_caches_and_updates_on_observe():
+    """scale_at doit refléter les nouvelles observations (cache invalidé)."""
+    cal = AutoCalibrator(frame_height=720, bands=1, min_samples=1)
+    for _ in range(5):
+        cal.observe((100, 300, 100, 50), (10.0, 0.0))  # 4.4/100 = 0.044
+    first = cal.scale_at(360)
+    assert first == pytest.approx(0.044, rel=1e-6)
+    for _ in range(50):
+        cal.observe((100, 300, 200, 100), (10.0, 0.0))  # 4.4/200 = 0.022
+    # La médiane bascule vers les nouvelles valeurs -> le cache s'est invalidé.
+    assert cal.scale_at(360) < first
+
+
+def test_autocalibrator_bounded_window():
+    """La fenêtre glissante borne la mémoire; sample_count compte le total vu."""
+    cal = AutoCalibrator(frame_height=720, min_samples=10, max_samples=100)
+    for _ in range(500):
+        cal.observe((100, 300, 100, 50), (10.0, 0.0))
+    assert cal.sample_count == 500          # total observé
+    assert len(cal._samples) == 100         # mémoire bornée
+    assert cal.is_calibrated
+
+
 def test_homography_identity():
     pts = [[0, 0, 0, 0], [100, 0, 100, 0], [100, 100, 100, 100], [0, 100, 0, 100]]
     H = homography_from_points(pts)

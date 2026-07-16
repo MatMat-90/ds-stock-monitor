@@ -21,6 +21,7 @@ Deux modes, du plus simple au plus précis :
 from __future__ import annotations
 
 import math
+from collections import deque
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -43,6 +44,7 @@ class AutoCalibrator:
         mean_vehicle_length_m: float = 4.4,
         bands: int = 8,
         min_samples: int = 30,
+        max_samples: int = 4000,
     ) -> None:
         if frame_height <= 0:
             raise ValueError("frame_height doit être positif")
@@ -50,7 +52,13 @@ class AutoCalibrator:
         self.mean_vehicle_length_m = mean_vehicle_length_m
         self.bands = max(1, bands)
         self.min_samples = min_samples
-        self._samples: list[ScaleSample] = []
+        # Fenêtre glissante bornée : garde les observations les plus récentes
+        # (l'échelle reste stable, la mémoire et le coût de calcul aussi ;
+        # s'adapte en plus à un léger changement de scène/zoom).
+        self._samples: deque[ScaleSample] = deque(maxlen=max_samples)
+        # Cache des médianes par bande, invalidé à chaque nouvelle observation.
+        self._cache: tuple[np.ndarray, np.ndarray] | None = None
+        self._total_observed = 0
 
     # ------------------------------------------------------------------
     # Alimentation
@@ -78,29 +86,45 @@ class AutoCalibrator:
             return
         cy = y + h / 2.0
         self._samples.append(ScaleSample(cy, self.mean_vehicle_length_m / length_px))
+        self._total_observed += 1
+        self._cache = None  # invalide les médianes mises en cache
 
     # ------------------------------------------------------------------
     # Lecture
     # ------------------------------------------------------------------
     @property
     def sample_count(self) -> int:
-        return len(self._samples)
+        # Nombre total d'observations vues (la fenêtre en garde une partie).
+        return self._total_observed
 
     @property
     def is_calibrated(self) -> bool:
-        return len(self._samples) >= self.min_samples
+        return self._total_observed >= self.min_samples
 
     def _band_medians(self) -> tuple[np.ndarray, np.ndarray]:
-        """Médiane des échantillons par bande -> (centres_y, échelles)."""
+        """Médiane des échantillons par bande -> (centres_y, échelles).
+
+        Résultat mis en cache : recalculé seulement après une nouvelle
+        observation. `scale_at` est appelée une fois par point de piste lors
+        de l'estimation de vitesse ; sans ce cache, le coût est quadratique
+        sur du trafic dense.
+        """
+        if self._cache is not None:
+            return self._cache
         band_h = self.frame_height / self.bands
+        ys = np.fromiter((s.y for s in self._samples), dtype=float, count=len(self._samples))
+        mpp = np.fromiter(
+            (s.meters_per_pixel for s in self._samples), dtype=float, count=len(self._samples)
+        )
+        band_idx = np.clip((ys / band_h).astype(int), 0, self.bands - 1)
         centers, scales = [], []
         for b in range(self.bands):
-            lo, hi = b * band_h, (b + 1) * band_h
-            vals = [s.meters_per_pixel for s in self._samples if lo <= s.y < hi]
-            if vals:
-                centers.append(lo + band_h / 2.0)
+            vals = mpp[band_idx == b]
+            if vals.size:
+                centers.append((b + 0.5) * band_h)
                 scales.append(float(np.median(vals)))
-        return np.asarray(centers), np.asarray(scales)
+        self._cache = (np.asarray(centers), np.asarray(scales))
+        return self._cache
 
     def scale_at(self, y: float) -> float:
         """Échelle mètres/pixel à la position verticale `y` (interpolée)."""
