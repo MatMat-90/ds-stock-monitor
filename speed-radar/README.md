@@ -52,6 +52,13 @@ python -m speedradar --config config.yaml --record-all
 Les réglages fins (tolérance, pré/post-roll, seuils de détection...) sont dans
 [`config.yaml`](config.yaml).
 
+Pour tester **en direct sur du vrai trafic** avec une source légitime (votre
+smartphone en 2 minutes, une webcam, vos propres caméras), suivez
+[docs/TESTER_EN_DIRECT.md](docs/TESTER_EN_DIRECT.md). N'utilisez jamais de
+caméras « ouvertes » trouvées sur Internet : ce sont des caméras privées non
+sécurisées, et en lire les plaques est illégal (voir
+[docs/HOMOLOGATION.md](docs/HOMOLOGATION.md)).
+
 ## Comment marche l'auto-calibration ?
 
 Un radar vidéo doit connaître l'échelle de la scène (combien de mètres vaut un
