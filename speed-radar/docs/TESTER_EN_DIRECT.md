@@ -49,6 +49,31 @@ Si vous êtes responsable de la caméra, utilisez son URL RTSP :
 python -m speedradar --source "rtsp://utilisateur:motdepasse@192.168.1.20/stream1" --limit 50
 ```
 
+## Flux live publics directement utilisables (HLS)
+
+Certaines caméras publiques exposent un flux HLS **directement lisible**, sans
+lecteur à jeton ni signature liée à l'IP — donc utilisable tel quel comme
+`--source`. C'est le cas des caméras hébergées par IPCamLive : l'URL du flux
+se résout depuis l'alias public de la caméra.
+
+```bash
+# 1. Résoudre l'URL HLS courante depuis l'alias public (ex. "broadwaycam",
+#    une rue passante de Nashville) :
+curl -s "https://www.ipcamlive.com/player/getcamerastreamstate.php?alias=broadwaycam"
+# -> renvoie address (ex. http://s140.ipcamlive.com/) et streamid.
+# L'URL HLS est : <address>streams/<streamid>/stream.m3u8
+
+# 2. Lancer le radar EN DIRECT dessus :
+python -m speedradar \
+  --source "http://s140.ipcamlive.com/streams/<streamid>/stream.m3u8" \
+  --limit 25 --record-all --display
+```
+
+> Note réseau : OpenCV/ffmpeg lisent ces flux en connexion directe. Les flux
+> YouTube (googlevideo) ne conviennent pas en environnement mandaté par proxy :
+> leurs segments sont signés par IP et renvoient des 403. Les flux HLS
+> « simples » (IPCamLive, nombreux CDN) fonctionnent, eux, directement.
+
 ## Flux publics officiels
 
 Certaines collectivités et offices de tourisme publient des webcams **dont les
