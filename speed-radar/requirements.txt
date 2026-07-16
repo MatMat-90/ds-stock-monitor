@@ -1,0 +1,14 @@
+# Dépendances de base (obligatoires)
+numpy
+opencv-python
+pyyaml
+
+# --- Optionnelles : améliorent la détection et la lecture de plaque ---
+# Détection de véhicules par YOLO (recommandé si la machine le permet) :
+# ultralytics
+# Lecture de plaque (OCR), au choix :
+# easyocr
+# pytesseract   (nécessite aussi le binaire tesseract-ocr)
+
+# Tests
+pytest
