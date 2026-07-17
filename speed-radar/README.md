@@ -32,9 +32,23 @@ pip install easyocr       # lecture de plaque
 
 ## Démarrage rapide
 
+Le plus simple — le script `demo.sh` installe tout au premier lancement
+(environnement virtuel local) et ouvre la fenêtre annotée en temps réel :
+
+```bash
+./demo.sh 0                                  # webcam locale
+./demo.sh route.mp4                          # fichier vidéo
+./demo.sh "https://www.skylinewebcams.com/fr/webcam/.../x.html"   # page Skyline
+```
+
+Ou directement en ligne de commande :
+
 ```bash
 # Webcam locale, limite 50 km/h
 python -m speedradar --source 0 --limit 50
+
+# Webcam SkylineWebcams (l'URL de la page suffit : flux + Referer résolus)
+python -m speedradar --source "https://www.skylinewebcams.com/fr/webcam/.../x.html" --display
 
 # Smartphone (app "IP Webcam" ou équivalente)
 python -m speedradar --source http://192.168.1.30:8080/video --limit 30

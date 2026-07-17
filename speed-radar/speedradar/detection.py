@@ -86,6 +86,8 @@ def build_detector(
     if prefer_yolo:
         try:
             return YoloDetector(yolo_model)
-        except ImportError:
+        except Exception:
+            # ultralytics absent, poids introuvables, pas de réseau… : on
+            # bascule silencieusement sur la soustraction de fond (marche partout).
             pass
     return BackgroundSubtractionDetector(min_area=min_area, max_area_ratio=max_area_ratio)

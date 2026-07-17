@@ -49,6 +49,35 @@ Si vous êtes responsable de la caméra, utilisez son URL RTSP :
 python -m speedradar --source "rtsp://utilisateur:motdepasse@192.168.1.20/stream1" --limit 50
 ```
 
+## Démo « clé USB » : une commande, n'importe quel flux
+
+Le script [`demo.sh`](../demo.sh) installe les dépendances au premier lancement
+(dans un `.venv` local, rien n'est installé sur le système) puis ouvre la
+fenêtre annotée en temps réel :
+
+```bash
+./demo.sh                                   # webcam locale
+./demo.sh route.mp4                         # fichier vidéo
+./demo.sh "rtsp://user:mdp@192.168.1.20/stream"     # caméra RTSP
+./demo.sh "https://www.skylinewebcams.com/fr/webcam/.../x.html"  # page Skyline
+```
+
+## Webcams SkylineWebcams (résolution automatique)
+
+Il suffit de passer l'**URL de la page** d'une webcam SkylineWebcams gratuite
+à `--source` : le flux HLS courant et l'en-tête `Referer` requis sont résolus
+automatiquement.
+
+```bash
+python -m speedradar \
+  --source "https://www.skylinewebcams.com/fr/webcam/italia/lombardia/milano/piazza-san-babila.html" \
+  --limit 50 --display
+```
+
+> Les caméras **premium** (payantes) de Skyline ne diffusent pas leur flux
+> librement : le programme le signale clairement. Choisissez une caméra
+> gratuite (la plupart des webcams de villes/places).
+
 ## Flux live publics directement utilisables (HLS)
 
 Certaines caméras publiques exposent un flux HLS **directement lisible**, sans

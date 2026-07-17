@@ -2,6 +2,7 @@
 numpy
 opencv-python
 pyyaml
+requests   # résolution des sources live (ex. pages SkylineWebcams)
 
 # --- Optionnelles : améliorent la détection et la lecture de plaque ---
 # Détection de véhicules par YOLO (recommandé si la machine le permet) :

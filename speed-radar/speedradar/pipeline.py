@@ -23,6 +23,7 @@ from .integrity import (
 )
 from .recorder import EventRecorder
 from .ring_buffer import FrameRingBuffer
+from .sources import resolve_source
 from .speed import SpeedEstimate, estimate_speed
 from .tracking import CentroidTracker, Track
 from .vehicle_db import VehicleDatabase
@@ -39,7 +40,8 @@ def open_source(source: str, fallback_fps: float) -> tuple[cv2.VideoCapture, flo
 
     Retourne (capture, fps, is_live).
     """
-    is_file = Path(source).exists()
+    source = resolve_source(source)  # résout les pages Skyline, configure le Referer
+    is_file = not source.isdigit() and Path(source).exists()
     cap = cv2.VideoCapture(int(source) if source.isdigit() else source)
     if not cap.isOpened():
         raise RuntimeError(f"Impossible d'ouvrir la source vidéo: {source}")
