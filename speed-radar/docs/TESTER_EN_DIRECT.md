@@ -78,6 +78,26 @@ python -m speedradar \
 > librement : le programme le signale clairement. Choisissez une caméra
 > gratuite (la plupart des webcams de villes/places).
 
+## Caméras d'autoroute en direct (flux CloudFront directs, gratuits)
+
+Plusieurs chaînes de télévision locales américaines (groupe Sinclair) publient
+leurs caméras trafic en **HLS CloudFront direct**, sans jeton ni abonnement —
+donc utilisables tels quels et lisibles par OpenCV. Elles montrent de vraies
+autoroutes chargées, de jour (utile pour une démo avec des véhicules qui
+roulent) :
+
+```bash
+# Caméras trafic de Portland (KATU) — mosaïque de 4 autoroutes
+python -m speedradar \
+  --source "https://d237lhmlzpreh2.cloudfront.net/KATUB/Traffic/m3u8/KATU-Traffic_live.m3u8" \
+  --limit 70 --display
+```
+
+Ces flux sont souvent une **mosaïque 2×2** de plusieurs caméras : pour une
+mesure de vitesse propre, cadrez sur une seule autoroute (recadrage de
+l'image) plutôt que sur la mosaïque entière, dont les perspectives mélangées
+faussent la calibration.
+
 ## Flux live publics directement utilisables (HLS)
 
 Certaines caméras publiques exposent un flux HLS **directement lisible**, sans
