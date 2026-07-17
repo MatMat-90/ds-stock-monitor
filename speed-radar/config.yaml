@@ -1,0 +1,58 @@
+# Configuration du radar de vitesse SpeedRadar.
+# Toute clé absente garde sa valeur par défaut.
+
+# Source vidéo — n'importe quelle caméra :
+#   "0"                             -> webcam USB locale
+#   "rtsp://user:mdp@192.168.1.20/" -> caméra de surveillance / domotique (RTSP)
+#   "http://192.168.1.30:8080/video" -> smartphone (app IP Webcam ou similaire)
+#   "chemin/vers/video.mp4"          -> rejeu d'un fichier
+source: "0"
+
+# Limite de vitesse contrôlée et tolérance avant déclenchement (km/h).
+speed_limit_kmh: 50
+tolerance_kmh: 5
+
+# Images/seconde utilisées si la source ne les annonce pas (flux HTTP bruts).
+fallback_fps: 25
+
+# Dossier des images de référence pour identifier le modèle du véhicule
+# (un sous-dossier par modèle, ex. data/vehicles/renault_clio/*.jpg).
+vehicle_db_dir: data/vehicles
+
+calibration:
+  # Longueur moyenne d'un véhicule léger servant d'étalon statistique (m).
+  mean_vehicle_length_m: 4.4
+  # Passages observés avant de considérer l'auto-calibration fiable.
+  min_samples: 30
+  # Bandes horizontales de l'image (l'échelle varie avec la profondeur).
+  bands: 8
+  # Pour une précision supérieure, fournir >= 4 correspondances
+  # pixel -> mètres au sol (marquages routiers mesurés sur place) :
+  # ground_points:
+  #   - [412, 580, 0.0, 0.0]    # [px_x, px_y, sol_x_m, sol_y_m]
+  #   - [893, 574, 3.5, 0.0]
+  #   - [760, 312, 3.5, 20.0]
+  #   - [455, 316, 0.0, 20.0]
+  ground_points: null
+
+detection:
+  # YOLO est utilisé si `ultralytics` est installé, sinon soustraction de fond.
+  prefer_yolo: true
+  yolo_model: yolov8n.pt
+  # Filtres de la détection par soustraction de fond.
+  min_area: 1500
+  max_area_ratio: 0.5
+
+tracking:
+  max_distance: 120     # px max entre deux positions successives d'un objet
+  max_missed: 10        # images sans détection avant de clore une piste
+  min_track_points: 8   # points minimum pour estimer une vitesse
+
+recording:
+  # Capture continue en mémoire, mais on ne sauvegarde que l'utile :
+  # `pre_seconds` avant le déclenchement + `post_seconds` après le passage.
+  pre_seconds: 4
+  post_seconds: 3
+  output_dir: captures
+  # true = enregistrer tous les passages mesurés, false = seulement les excès.
+  record_all: false
